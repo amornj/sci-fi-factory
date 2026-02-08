@@ -90,7 +90,11 @@ function cloneGrip(g) {
 function HandModel({ jointRefs }) {
   return (
     <group>
-      {/* Wrist joint sphere — at pivot center, rotates in place */}
+      {/* Wrist / forearm */}
+      <mesh position={[0, -0.052, 0.010]} rotation={[0.08, 0, 0]}>
+        <cylinderGeometry args={[0.025, 0.030, 0.075, 10]} />
+        <meshStandardMaterial {...SKIN} />
+      </mesh>
       <mesh position={[0, -0.012, 0.008]} scale={[1, 0.8, 0.7]}>
         <sphereGeometry args={[0.032, 10, 8]} />
         <meshStandardMaterial {...SKIN_JOINT} />
@@ -208,19 +212,23 @@ function HandModel({ jointRefs }) {
 
 function PickaxeTool() {
   return (
-    <group>
+    <group rotation={[0, Math.PI / 2, 0]}>
+      {/* Handle */}
       <mesh position={[0, 0.26, 0]}>
         <cylinderGeometry args={[0.018, 0.022, 0.32, 6]} />
         <meshStandardMaterial color={0x664422} emissive={0x221100} emissiveIntensity={0.25} roughness={0.8} />
       </mesh>
+      {/* Pick point — now faces forward (-Z in world) */}
       <mesh position={[-0.05, 0.44, 0]} rotation={[0, 0, Math.PI / 2]}>
         <coneGeometry args={[0.035, 0.2, 4]} />
         <meshStandardMaterial color={0x8888aa} emissive={0x222233} emissiveIntensity={0.2} roughness={0.25} metalness={0.8} />
       </mesh>
+      {/* Back block */}
       <mesh position={[0.06, 0.44, 0]}>
         <boxGeometry args={[0.06, 0.05, 0.04]} />
         <meshStandardMaterial color={0x8888aa} emissive={0x222233} emissiveIntensity={0.2} roughness={0.25} metalness={0.8} />
       </mesh>
+      {/* Head mount */}
       <mesh position={[0, 0.44, 0]}>
         <boxGeometry args={[0.05, 0.06, 0.045]} />
         <meshStandardMaterial color={0x777799} emissive={0x111122} emissiveIntensity={0.2} roughness={0.3} metalness={0.7} />
@@ -420,7 +428,6 @@ function BeakerTool() {
 export default function HandTool() {
   const { camera } = useThree();
   const groupRef = useRef();
-  const handWristRef = useRef();
   const pickaxeRef = useRef();
   const chiselRef = useRef();
   const ladleRef = useRef();
@@ -561,14 +568,14 @@ export default function HandTool() {
     const idleY = Math.sin(time * 1.2) * 0.003;
     const idleX = Math.cos(time * 0.8) * 0.002;
 
-    // Slight wrist tilt when holding a tool (makes grip look natural)
+    // Base forward tilt — tools angle forward naturally, bare hand stays upright
     const holdingTool = ct !== 'hand';
+    const baseTilt = holdingTool ? -0.5 : 0;
     let animOffsetY = 0;
     let animOffsetX = 0;
     let animOffsetZ = 0;
-    let animRotX = holdingTool ? -0.15 : 0;
+    let animRotX = baseTilt;
     let animRotZ = 0;
-    let wristTwist = 0;
 
     if (a.phase === PHASE_FIRE) {
       a.timer += delta;
@@ -576,11 +583,11 @@ export default function HandTool() {
       if (t < 0.3) {
         const k = easeOut(t / 0.3);
         animOffsetY = k * 0.03;
-        animRotX = -k * 0.15;
+        animRotX = baseTilt - k * 0.15;
       } else {
         const k = smoothstep((t - 0.3) / 0.7);
         animOffsetY = 0.03 * (1 - k);
-        animRotX = -0.15 * (1 - k);
+        animRotX = baseTilt - 0.15 * (1 - k);
       }
       if (t >= 1) { a.phase = PHASE_IDLE; a.timer = 0; gs.clearToolAction(); }
     } else if (a.phase === PHASE_WINDUP) {
@@ -590,41 +597,25 @@ export default function HandTool() {
         weaponDefs[gs.currentWeapon] && weaponDefs[gs.currentWeapon].type === 'melee';
       if (isWeaponMelee) {
         animOffsetY = t * 0.12;
-        animRotX = -t * 0.5;
+        animRotX = baseTilt - t * 0.4;
         animRotZ = t * 0.2;
       } else if (ct === 'hand') {
         if (a.actionType === 'pickup') {
-          // Reach forward + wrist twist + dip down
-          animOffsetZ = -t * 0.08;
-          wristTwist = -t * Math.PI / 2;
-          animOffsetY = -t * 0.03;
+          // Reach forward slightly, start dipping
+          animOffsetZ = -t * 0.06;
+          animOffsetY = -t * 0.02;
         } else {
-          // Punch / mine swing + wrist twist
+          // Punch wind-up
           animOffsetY = t * 0.08;
           animRotX = -t * 0.35;
-          animOffsetX = -t * 0.02;
-          wristTwist = -t * Math.PI / 2;
         }
-      } else if (ct === 'pickaxe') {
-        animOffsetY = t * 0.20;
-        animRotX = -t * 0.8;
-        wristTwist = -t * Math.PI / 2;
-      } else if (ct === 'chisel') {
-        animOffsetY = t * 0.10;
-        animRotX = -t * 0.5;
-        animOffsetZ = t * 0.03;
-        wristTwist = -t * Math.PI / 2;
-      } else if (ct === 'ladle') {
-        animOffsetY = t * 0.12;
-        animRotX = t * 0.4;
-        wristTwist = -t * Math.PI / 2;
-      } else if (ct === 'beaker') {
-        animOffsetY = t * 0.12;
-        animRotX = t * 0.35;
-        wristTwist = -t * Math.PI / 2;
+      } else if (ct === 'pickaxe' || ct === 'chisel' || ct === 'ladle' || ct === 'beaker') {
+        // All mining tools: raise up before swing
+        animOffsetY = t * 0.15;
+        animRotX = baseTilt - t * 0.5;
       } else {
         animOffsetY = t * 0.08;
-        animRotX = -t * 0.3;
+        animRotX = baseTilt - t * 0.3;
       }
       if (a.timer >= WINDUP_DUR) { a.phase = PHASE_STRIKE; a.timer = 0; }
     } else if (a.phase === PHASE_STRIKE) {
@@ -634,43 +625,25 @@ export default function HandTool() {
         weaponDefs[gs.currentWeapon] && weaponDefs[gs.currentWeapon].type === 'melee';
       if (isWeaponMelee) {
         animOffsetY = 0.12 - t * 0.2;
-        animRotX = -0.5 + t * 1.0;
+        animRotX = baseTilt - 0.4 + t * 0.8;
         animRotZ = 0.2 - t * 0.4;
       } else if (ct === 'hand') {
         if (a.actionType === 'pickup') {
-          // Stay forward + wrist twisted, pull upward
-          animOffsetZ = -0.08;
-          wristTwist = -Math.PI / 2;
-          animOffsetY = -0.03 + t * 0.14;
+          // Pull hand straight up (the actual grab-and-lift)
+          animOffsetZ = -0.06;
+          animOffsetY = -0.02 + t * 0.16;
         } else {
-          // Punch downswing + wrist stays twisted
+          // Punch downswing
           animOffsetY = 0.08 - t * 0.18;
           animRotX = -0.35 + t * 0.7;
-          animOffsetX = -0.02 + t * 0.04;
-          wristTwist = -Math.PI / 2;
         }
-      } else if (ct === 'pickaxe') {
-        animOffsetY = 0.20 - t * 0.38;
-        animRotX = -0.8 + t * 1.5;
-        wristTwist = -Math.PI / 2;
-      } else if (ct === 'chisel') {
-        animOffsetY = 0.10 - t * 0.18;
-        animRotX = -0.5 + t * 0.9;
-        animOffsetZ = 0.03 - t * 0.08;
-        wristTwist = -Math.PI / 2;
-      } else if (ct === 'ladle') {
-        animOffsetY = 0.12 - t * 0.24;
-        animRotX = 0.4 - t * 0.9;
-        animRotZ = -t * 0.25;
-        wristTwist = -Math.PI / 2;
-      } else if (ct === 'beaker') {
-        animOffsetY = 0.12 - t * 0.22;
-        animRotX = 0.35 - t * 0.8;
-        animRotZ = -t * 0.20;
-        wristTwist = -Math.PI / 2;
+      } else if (ct === 'pickaxe' || ct === 'chisel' || ct === 'ladle' || ct === 'beaker') {
+        // All mining tools: swing down
+        animOffsetY = 0.15 - t * 0.30;
+        animRotX = baseTilt - 0.5 + t * 1.0;
       } else {
         animOffsetY = 0.08 - t * 0.14;
-        animRotX = -0.3 + t * 0.6;
+        animRotX = baseTilt - 0.3 + t * 0.6;
       }
       if (a.timer >= STRIKE_DUR) { a.phase = PHASE_RECOVERY; a.timer = 0; }
     } else if (a.phase === PHASE_RECOVERY) {
@@ -681,50 +654,27 @@ export default function HandTool() {
         weaponDefs[gs.currentWeapon] && weaponDefs[gs.currentWeapon].type === 'melee';
       if (isWeaponMelee) {
         animOffsetY = -0.08 * (1 - ease);
-        animRotX = 0.5 * (1 - ease);
+        animRotX = baseTilt + 0.4 * (1 - ease);
         animRotZ = -0.2 * (1 - ease);
       } else if (ct === 'hand') {
         if (a.actionType === 'pickup') {
-          // Return from forward+twisted+up to idle
-          animOffsetZ = -0.08 * (1 - ease);
-          wristTwist = -Math.PI / 2 * (1 - ease);
-          animOffsetY = 0.11 * (1 - ease);
+          // Return from lifted position to idle
+          animOffsetZ = -0.06 * (1 - ease);
+          animOffsetY = 0.14 * (1 - ease);
         } else {
-          // Return from punch + wrist untwists
+          // Return from punch
           animOffsetY = -0.10 * (1 - ease);
           animRotX = 0.35 * (1 - ease);
-          animOffsetX = 0.02 * (1 - ease);
-          wristTwist = -Math.PI / 2 * (1 - ease);
         }
-      } else if (ct === 'pickaxe') {
-        animOffsetY = -0.18 * (1 - ease);
-        animRotX = 0.7 * (1 - ease);
-        wristTwist = -Math.PI / 2 * (1 - ease);
-      } else if (ct === 'chisel') {
-        animOffsetY = -0.08 * (1 - ease);
-        animRotX = 0.4 * (1 - ease);
-        animOffsetZ = -0.05 * (1 - ease);
-        wristTwist = -Math.PI / 2 * (1 - ease);
-      } else if (ct === 'ladle') {
-        animOffsetY = -0.12 * (1 - ease);
-        animRotX = -0.5 * (1 - ease);
-        animRotZ = -0.25 * (1 - ease);
-        wristTwist = -Math.PI / 2 * (1 - ease);
-      } else if (ct === 'beaker') {
-        animOffsetY = -0.10 * (1 - ease);
-        animRotX = -0.45 * (1 - ease);
-        animRotZ = -0.20 * (1 - ease);
-        wristTwist = -Math.PI / 2 * (1 - ease);
+      } else if (ct === 'pickaxe' || ct === 'chisel' || ct === 'ladle' || ct === 'beaker') {
+        // All mining tools: return to idle
+        animOffsetY = -0.15 * (1 - ease);
+        animRotX = baseTilt + 0.5 * (1 - ease);
       } else {
         animOffsetY = -0.06 * (1 - ease);
-        animRotX = 0.3 * (1 - ease);
+        animRotX = baseTilt + 0.3 * (1 - ease);
       }
       if (t >= 1) { a.phase = PHASE_IDLE; a.timer = 0; gs.clearToolAction(); }
-    }
-
-    // Apply wrist twist to hand only (not tools)
-    if (handWristRef.current) {
-      handWristRef.current.rotation.z = wristTwist;
     }
 
     _offset.set(
@@ -742,19 +692,10 @@ export default function HandTool() {
   });
 
   return (
-    <group ref={groupRef} scale={[1.5, 1.5, 1.5]}>
+    <group ref={groupRef} scale={[1.3, 1.3, 1.3]}>
       <pointLight color={0xffeedd} intensity={0.5} distance={1.5} decay={2} position={[0, 0.05, -0.1]} />
-      {/* Forearm — stays fixed, not affected by wrist rotation */}
-      <mesh position={[0, -0.052, 0.010]} rotation={[0.08, 0, 0]}>
-        <cylinderGeometry args={[0.025, 0.030, 0.075, 10]} />
-        <meshStandardMaterial {...SKIN} />
-      </mesh>
-      {/* Hand — pivots at wrist joint for wrist twist */}
-      <group ref={handWristRef} position={[0, -0.012, 0.008]}>
-        <group position={[0, 0.012, -0.008]}>
-          <HandModel jointRefs={jointRefs.current} />
-        </group>
-      </group>
+      {/* Hand model (forearm + palm + fingers) */}
+      <HandModel jointRefs={jointRefs.current} />
       {/* Tool geometries — scaled to hand proportions, grip point at knuckle level */}
       <group ref={pickaxeRef} visible={false} position={[0, -0.02, 0]} scale={[0.7, 0.7, 0.7]}><PickaxeTool /></group>
       <group ref={chiselRef} visible={false} position={[0, -0.01, 0]} scale={[0.75, 0.75, 0.75]}><ChiselTool /></group>
