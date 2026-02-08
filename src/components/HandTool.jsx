@@ -90,7 +90,12 @@ function cloneGrip(g) {
 function HandModel({ jointRefs }) {
   return (
     <group>
-      {/* Wrist joint — sits at pivot, rotates in place */}
+      {/* Forearm */}
+      <mesh position={[0, -0.052, 0.010]} rotation={[0.08, 0, 0]}>
+        <cylinderGeometry args={[0.025, 0.030, 0.075, 10]} />
+        <meshStandardMaterial {...SKIN} />
+      </mesh>
+      {/* Wrist joint */}
       <mesh position={[0, -0.012, 0.008]} scale={[1, 0.8, 0.7]}>
         <sphereGeometry args={[0.032, 10, 8]} />
         <meshStandardMaterial {...SKIN_JOINT} />
@@ -434,7 +439,6 @@ export default function HandTool() {
   const scatterGunRef = useRef();
   const beakerRef = useRef();
   const muzzleFlashRef = useRef();
-  const handWristRef = useRef();
 
   // Joint refs populated by HandModel via callback refs
   const jointRefs = useRef({});
@@ -693,45 +697,30 @@ export default function HandTool() {
     groupRef.current.position.copy(camera.position).add(_offset);
 
     groupRef.current.quaternion.copy(camera.quaternion);
-    _euler.set(animRotX, 0, animRotZ);
+    _euler.set(animRotX, 0, animRotZ + wristTwist);
     _quat.setFromEuler(_euler);
     groupRef.current.quaternion.multiply(_quat);
-
-    // Apply wrist twist at wrist pivot
-    if (handWristRef.current) {
-      handWristRef.current.rotation.z = wristTwist;
-    }
   });
 
   return (
     <group ref={groupRef} scale={[1.8, 1.8, 1.8]}>
       <pointLight color={0xffeedd} intensity={0.5} distance={1.5} decay={2} position={[0, 0.05, -0.1]} />
-      {/* Forearm — static, doesn't rotate with wrist */}
-      <mesh position={[0, -0.05, 0.008]} rotation={[0.08, 0, 0]}>
-        <cylinderGeometry args={[0.030, 0.036, 0.08, 8]} />
-        <meshStandardMaterial {...SKIN} />
+      <HandModel jointRefs={jointRefs.current} />
+      {/* Tool geometries — positioned in palm grip zone */}
+      <group ref={pickaxeRef} visible={false} position={[0, -0.07, 0]}><PickaxeTool /></group>
+      <group ref={chiselRef} visible={false} position={[0, -0.05, 0]}><ChiselTool /></group>
+      <group ref={ladleRef} visible={false} position={[0, -0.07, 0]}><LadleTool /></group>
+      <group ref={stunBatonRef} visible={false} position={[0, -0.07, 0]}><StunBatonTool /></group>
+      <group ref={energySwordRef} visible={false} position={[0, -0.08, 0]}><EnergySwordTool /></group>
+      <group ref={plasmaPistolRef} visible={false} position={[0, -0.06, 0]}><PlasmaPistolTool /></group>
+      <group ref={pulseRifleRef} visible={false} position={[0, -0.05, 0]}><PulseRifleTool /></group>
+      <group ref={scatterGunRef} visible={false} position={[0, -0.06, 0]}><ScatterGunTool /></group>
+      <group ref={beakerRef} visible={false} position={[0, -0.10, 0]}><BeakerTool /></group>
+      {/* Muzzle flash */}
+      <mesh ref={muzzleFlashRef} position={[0, 0.1, -0.2]} visible={false}>
+        <sphereGeometry args={[1, 6, 4]} />
+        <meshStandardMaterial color={0xffffff} emissive={0xffaa44} emissiveIntensity={3} transparent opacity={0.6} toneMapped={false} />
       </mesh>
-      {/* Wrist pivot — rotates hand + tools around wrist joint */}
-      <group ref={handWristRef} position={[0, -0.012, 0.008]}>
-        <group position={[0, 0.012, -0.008]}>
-          <HandModel jointRefs={jointRefs.current} />
-          {/* Tool geometries — positioned inside grip (Z=-0.015 = palm side, behind knuckles) */}
-          <group ref={pickaxeRef} visible={false} position={[0, -0.055, -0.015]}><PickaxeTool /></group>
-          <group ref={chiselRef} visible={false} position={[0, -0.035, -0.015]}><ChiselTool /></group>
-          <group ref={ladleRef} visible={false} position={[0, -0.055, -0.015]}><LadleTool /></group>
-          <group ref={stunBatonRef} visible={false} position={[0, -0.055, -0.015]}><StunBatonTool /></group>
-          <group ref={energySwordRef} visible={false} position={[0, -0.065, -0.015]}><EnergySwordTool /></group>
-          <group ref={plasmaPistolRef} visible={false} position={[0, -0.045, -0.015]}><PlasmaPistolTool /></group>
-          <group ref={pulseRifleRef} visible={false} position={[0, -0.035, -0.015]}><PulseRifleTool /></group>
-          <group ref={scatterGunRef} visible={false} position={[0, -0.045, -0.015]}><ScatterGunTool /></group>
-          <group ref={beakerRef} visible={false} position={[0, -0.085, -0.015]}><BeakerTool /></group>
-          {/* Muzzle flash */}
-          <mesh ref={muzzleFlashRef} position={[0, 0.1, -0.2]} visible={false}>
-            <sphereGeometry args={[1, 6, 4]} />
-            <meshStandardMaterial color={0xffffff} emissive={0xffaa44} emissiveIntensity={3} transparent opacity={0.6} toneMapped={false} />
-          </mesh>
-        </group>
-      </group>
     </group>
   );
 }
