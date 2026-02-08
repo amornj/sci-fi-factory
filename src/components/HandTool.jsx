@@ -38,20 +38,20 @@ const GRIPS = {
     t: [0.12, 0.15, 0.50]
   },
   grip: {
-    f: [[1.30, 1.45, 0.90], [1.25, 1.40, 0.85], [1.30, 1.45, 0.90], [1.35, 1.50, 0.95]],
-    t: [0.65, 1.00, 0.22]
+    f: [[1.55, 1.70, 1.15], [1.50, 1.65, 1.10], [1.55, 1.70, 1.15], [1.60, 1.75, 1.20]],
+    t: [0.70, 1.10, 0.20]
   },
   chisel: {
-    f: [[0.30, 0.35, 0.22], [1.25, 1.40, 0.85], [1.30, 1.45, 0.90], [1.35, 1.50, 0.95]],
-    t: [0.60, 0.95, 0.22]
+    f: [[0.30, 0.35, 0.22], [1.50, 1.65, 1.10], [1.55, 1.70, 1.15], [1.60, 1.75, 1.20]],
+    t: [0.65, 1.05, 0.20]
   },
   trigger: {
-    f: [[0.85, 1.00, 0.65], [1.25, 1.40, 0.85], [1.30, 1.45, 0.90], [1.35, 1.50, 0.95]],
+    f: [[0.90, 1.10, 0.70], [1.50, 1.65, 1.10], [1.55, 1.70, 1.15], [1.60, 1.75, 1.20]],
     t: [0.45, 0.65, 0.25]
   },
   fist: {
-    f: [[1.35, 1.50, 0.95], [1.30, 1.45, 0.90], [1.35, 1.50, 0.95], [1.40, 1.55, 1.00]],
-    t: [0.85, 1.20, 0.12]
+    f: [[1.50, 1.60, 1.10], [1.45, 1.55, 1.05], [1.50, 1.60, 1.10], [1.55, 1.65, 1.15]],
+    t: [0.95, 1.30, 0.10]
   },
 };
 
@@ -90,11 +90,7 @@ function cloneGrip(g) {
 function HandModel({ jointRefs }) {
   return (
     <group>
-      {/* Wrist / forearm */}
-      <mesh position={[0, -0.052, 0.010]} rotation={[0.08, 0, 0]}>
-        <cylinderGeometry args={[0.025, 0.030, 0.075, 10]} />
-        <meshStandardMaterial {...SKIN} />
-      </mesh>
+      {/* Wrist joint — sits at pivot, rotates in place */}
       <mesh position={[0, -0.012, 0.008]} scale={[1, 0.8, 0.7]}>
         <sphereGeometry args={[0.032, 10, 8]} />
         <meshStandardMaterial {...SKIN_JOINT} />
@@ -438,6 +434,7 @@ export default function HandTool() {
   const scatterGunRef = useRef();
   const beakerRef = useRef();
   const muzzleFlashRef = useRef();
+  const handWristRef = useRef();
 
   // Joint refs populated by HandModel via callback refs
   const jointRefs = useRef({});
@@ -568,14 +565,12 @@ export default function HandTool() {
     const idleY = Math.sin(time * 1.2) * 0.003;
     const idleX = Math.cos(time * 0.8) * 0.002;
 
-    // Base forward tilt — tools angle forward naturally, bare hand stays upright
-    const holdingTool = ct !== 'hand';
-    const baseTilt = holdingTool ? -0.5 : 0;
     let animOffsetY = 0;
     let animOffsetX = 0;
     let animOffsetZ = 0;
-    let animRotX = baseTilt;
+    let animRotX = 0;
     let animRotZ = 0;
+    let wristTwist = 0;
 
     if (a.phase === PHASE_FIRE) {
       a.timer += delta;
@@ -583,11 +578,11 @@ export default function HandTool() {
       if (t < 0.3) {
         const k = easeOut(t / 0.3);
         animOffsetY = k * 0.03;
-        animRotX = baseTilt - k * 0.15;
+        animRotX = -k * 0.15;
       } else {
         const k = smoothstep((t - 0.3) / 0.7);
         animOffsetY = 0.03 * (1 - k);
-        animRotX = baseTilt - 0.15 * (1 - k);
+        animRotX = -0.15 * (1 - k);
       }
       if (t >= 1) { a.phase = PHASE_IDLE; a.timer = 0; gs.clearToolAction(); }
     } else if (a.phase === PHASE_WINDUP) {
@@ -597,8 +592,9 @@ export default function HandTool() {
         weaponDefs[gs.currentWeapon] && weaponDefs[gs.currentWeapon].type === 'melee';
       if (isWeaponMelee) {
         animOffsetY = t * 0.12;
-        animRotX = baseTilt - t * 0.4;
+        animRotX = -t * 0.4;
         animRotZ = t * 0.2;
+        wristTwist = t * 0.2;
       } else if (ct === 'hand') {
         if (a.actionType === 'pickup') {
           // Reach forward slightly, start dipping
@@ -608,14 +604,17 @@ export default function HandTool() {
           // Punch wind-up
           animOffsetY = t * 0.08;
           animRotX = -t * 0.35;
+          wristTwist = t * 0.15;
         }
       } else if (ct === 'pickaxe' || ct === 'chisel' || ct === 'ladle' || ct === 'beaker') {
         // All mining tools: raise up before swing
         animOffsetY = t * 0.15;
-        animRotX = baseTilt - t * 0.5;
+        animRotX = -t * 0.5;
+        wristTwist = t * 0.25;
       } else {
         animOffsetY = t * 0.08;
-        animRotX = baseTilt - t * 0.3;
+        animRotX = -t * 0.3;
+        wristTwist = t * 0.15;
       }
       if (a.timer >= WINDUP_DUR) { a.phase = PHASE_STRIKE; a.timer = 0; }
     } else if (a.phase === PHASE_STRIKE) {
@@ -625,8 +624,9 @@ export default function HandTool() {
         weaponDefs[gs.currentWeapon] && weaponDefs[gs.currentWeapon].type === 'melee';
       if (isWeaponMelee) {
         animOffsetY = 0.12 - t * 0.2;
-        animRotX = baseTilt - 0.4 + t * 0.8;
+        animRotX = -0.4 + t * 0.8;
         animRotZ = 0.2 - t * 0.4;
+        wristTwist = 0.2 - t * 0.4;
       } else if (ct === 'hand') {
         if (a.actionType === 'pickup') {
           // Pull hand straight up (the actual grab-and-lift)
@@ -636,14 +636,17 @@ export default function HandTool() {
           // Punch downswing
           animOffsetY = 0.08 - t * 0.18;
           animRotX = -0.35 + t * 0.7;
+          wristTwist = 0.15 - t * 0.3;
         }
       } else if (ct === 'pickaxe' || ct === 'chisel' || ct === 'ladle' || ct === 'beaker') {
         // All mining tools: swing down
         animOffsetY = 0.15 - t * 0.30;
-        animRotX = baseTilt - 0.5 + t * 1.0;
+        animRotX = -0.5 + t * 1.0;
+        wristTwist = 0.25 - t * 0.4;
       } else {
         animOffsetY = 0.08 - t * 0.14;
-        animRotX = baseTilt - 0.3 + t * 0.6;
+        animRotX = -0.3 + t * 0.6;
+        wristTwist = 0.15 - t * 0.3;
       }
       if (a.timer >= STRIKE_DUR) { a.phase = PHASE_RECOVERY; a.timer = 0; }
     } else if (a.phase === PHASE_RECOVERY) {
@@ -654,8 +657,9 @@ export default function HandTool() {
         weaponDefs[gs.currentWeapon] && weaponDefs[gs.currentWeapon].type === 'melee';
       if (isWeaponMelee) {
         animOffsetY = -0.08 * (1 - ease);
-        animRotX = baseTilt + 0.4 * (1 - ease);
+        animRotX = 0.4 * (1 - ease);
         animRotZ = -0.2 * (1 - ease);
+        wristTwist = -0.2 * (1 - ease);
       } else if (ct === 'hand') {
         if (a.actionType === 'pickup') {
           // Return from lifted position to idle
@@ -665,22 +669,25 @@ export default function HandTool() {
           // Return from punch
           animOffsetY = -0.10 * (1 - ease);
           animRotX = 0.35 * (1 - ease);
+          wristTwist = -0.15 * (1 - ease);
         }
       } else if (ct === 'pickaxe' || ct === 'chisel' || ct === 'ladle' || ct === 'beaker') {
         // All mining tools: return to idle
         animOffsetY = -0.15 * (1 - ease);
-        animRotX = baseTilt + 0.5 * (1 - ease);
+        animRotX = 0.5 * (1 - ease);
+        wristTwist = -0.15 * (1 - ease);
       } else {
         animOffsetY = -0.06 * (1 - ease);
-        animRotX = baseTilt + 0.3 * (1 - ease);
+        animRotX = 0.3 * (1 - ease);
+        wristTwist = -0.15 * (1 - ease);
       }
       if (t >= 1) { a.phase = PHASE_IDLE; a.timer = 0; gs.clearToolAction(); }
     }
 
     _offset.set(
-      0.26 + bobX + idleX + animOffsetX,
-      -0.24 + bobY + idleY + animOffsetY,
-      -0.35 + animOffsetZ
+      0.28 + bobX + idleX + animOffsetX,
+      -0.26 + bobY + idleY + animOffsetY,
+      -0.4 + animOffsetZ
     );
     _offset.applyQuaternion(camera.quaternion);
     groupRef.current.position.copy(camera.position).add(_offset);
@@ -689,28 +696,42 @@ export default function HandTool() {
     _euler.set(animRotX, 0, animRotZ);
     _quat.setFromEuler(_euler);
     groupRef.current.quaternion.multiply(_quat);
+
+    // Apply wrist twist at wrist pivot
+    if (handWristRef.current) {
+      handWristRef.current.rotation.z = wristTwist;
+    }
   });
 
   return (
-    <group ref={groupRef} scale={[1.3, 1.3, 1.3]}>
+    <group ref={groupRef} scale={[1.8, 1.8, 1.8]}>
       <pointLight color={0xffeedd} intensity={0.5} distance={1.5} decay={2} position={[0, 0.05, -0.1]} />
-      {/* Hand model (forearm + palm + fingers) */}
-      <HandModel jointRefs={jointRefs.current} />
-      {/* Tool geometries — scaled to hand proportions, grip point at knuckle level */}
-      <group ref={pickaxeRef} visible={false} position={[0, -0.02, 0]} scale={[0.7, 0.7, 0.7]}><PickaxeTool /></group>
-      <group ref={chiselRef} visible={false} position={[0, -0.01, 0]} scale={[0.75, 0.75, 0.75]}><ChiselTool /></group>
-      <group ref={ladleRef} visible={false} position={[0, -0.02, 0]} scale={[0.7, 0.7, 0.7]}><LadleTool /></group>
-      <group ref={stunBatonRef} visible={false} position={[0, -0.015, 0]} scale={[0.65, 0.65, 0.65]}><StunBatonTool /></group>
-      <group ref={energySwordRef} visible={false} position={[0, -0.02, 0]} scale={[0.65, 0.65, 0.65]}><EnergySwordTool /></group>
-      <group ref={plasmaPistolRef} visible={false} position={[0, -0.015, 0]} scale={[0.75, 0.75, 0.75]}><PlasmaPistolTool /></group>
-      <group ref={pulseRifleRef} visible={false} position={[0, -0.006, 0]} scale={[0.7, 0.7, 0.7]}><PulseRifleTool /></group>
-      <group ref={scatterGunRef} visible={false} position={[0, -0.015, 0]} scale={[0.75, 0.75, 0.75]}><ScatterGunTool /></group>
-      <group ref={beakerRef} visible={false} position={[0, -0.02, 0]} scale={[0.55, 0.55, 0.55]}><BeakerTool /></group>
-      {/* Muzzle flash */}
-      <mesh ref={muzzleFlashRef} position={[0, 0.1, -0.2]} visible={false}>
-        <sphereGeometry args={[1, 6, 4]} />
-        <meshStandardMaterial color={0xffffff} emissive={0xffaa44} emissiveIntensity={3} transparent opacity={0.6} toneMapped={false} />
+      {/* Forearm — static, doesn't rotate with wrist */}
+      <mesh position={[0, -0.05, 0.008]} rotation={[0.08, 0, 0]}>
+        <cylinderGeometry args={[0.030, 0.036, 0.08, 8]} />
+        <meshStandardMaterial {...SKIN} />
       </mesh>
+      {/* Wrist pivot — rotates hand + tools around wrist joint */}
+      <group ref={handWristRef} position={[0, -0.012, 0.008]}>
+        <group position={[0, 0.012, -0.008]}>
+          <HandModel jointRefs={jointRefs.current} />
+          {/* Tool geometries — positioned in palm grip zone */}
+          <group ref={pickaxeRef} visible={false} position={[0, -0.07, 0]}><PickaxeTool /></group>
+          <group ref={chiselRef} visible={false} position={[0, -0.05, 0]}><ChiselTool /></group>
+          <group ref={ladleRef} visible={false} position={[0, -0.07, 0]}><LadleTool /></group>
+          <group ref={stunBatonRef} visible={false} position={[0, -0.07, 0]}><StunBatonTool /></group>
+          <group ref={energySwordRef} visible={false} position={[0, -0.08, 0]}><EnergySwordTool /></group>
+          <group ref={plasmaPistolRef} visible={false} position={[0, -0.06, 0]}><PlasmaPistolTool /></group>
+          <group ref={pulseRifleRef} visible={false} position={[0, -0.05, 0]}><PulseRifleTool /></group>
+          <group ref={scatterGunRef} visible={false} position={[0, -0.06, 0]}><ScatterGunTool /></group>
+          <group ref={beakerRef} visible={false} position={[0, -0.10, 0]}><BeakerTool /></group>
+          {/* Muzzle flash */}
+          <mesh ref={muzzleFlashRef} position={[0, 0.1, -0.2]} visible={false}>
+            <sphereGeometry args={[1, 6, 4]} />
+            <meshStandardMaterial color={0xffffff} emissive={0xffaa44} emissiveIntensity={3} transparent opacity={0.6} toneMapped={false} />
+          </mesh>
+        </group>
+      </group>
     </group>
   );
 }
