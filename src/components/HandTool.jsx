@@ -715,16 +715,16 @@ export default function HandTool() {
       <group ref={handWristRef} position={[0, -0.012, 0.008]}>
         <group position={[0, 0.012, -0.008]}>
           <HandModel jointRefs={jointRefs.current} />
-          {/* Tool geometries — positioned in palm grip zone */}
-          <group ref={pickaxeRef} visible={false} position={[0, -0.07, 0]}><PickaxeTool /></group>
-          <group ref={chiselRef} visible={false} position={[0, -0.05, 0]}><ChiselTool /></group>
-          <group ref={ladleRef} visible={false} position={[0, -0.07, 0]}><LadleTool /></group>
-          <group ref={stunBatonRef} visible={false} position={[0, -0.07, 0]}><StunBatonTool /></group>
-          <group ref={energySwordRef} visible={false} position={[0, -0.08, 0]}><EnergySwordTool /></group>
-          <group ref={plasmaPistolRef} visible={false} position={[0, -0.06, 0]}><PlasmaPistolTool /></group>
-          <group ref={pulseRifleRef} visible={false} position={[0, -0.05, 0]}><PulseRifleTool /></group>
-          <group ref={scatterGunRef} visible={false} position={[0, -0.06, 0]}><ScatterGunTool /></group>
-          <group ref={beakerRef} visible={false} position={[0, -0.10, 0]}><BeakerTool /></group>
+          {/* Tool geometries — positioned inside grip (Z=-0.015 = palm side, behind knuckles) */}
+          <group ref={pickaxeRef} visible={false} position={[0, -0.055, -0.015]}><PickaxeTool /></group>
+          <group ref={chiselRef} visible={false} position={[0, -0.035, -0.015]}><ChiselTool /></group>
+          <group ref={ladleRef} visible={false} position={[0, -0.055, -0.015]}><LadleTool /></group>
+          <group ref={stunBatonRef} visible={false} position={[0, -0.055, -0.015]}><StunBatonTool /></group>
+          <group ref={energySwordRef} visible={false} position={[0, -0.065, -0.015]}><EnergySwordTool /></group>
+          <group ref={plasmaPistolRef} visible={false} position={[0, -0.045, -0.015]}><PlasmaPistolTool /></group>
+          <group ref={pulseRifleRef} visible={false} position={[0, -0.035, -0.015]}><PulseRifleTool /></group>
+          <group ref={scatterGunRef} visible={false} position={[0, -0.045, -0.015]}><ScatterGunTool /></group>
+          <group ref={beakerRef} visible={false} position={[0, -0.085, -0.015]}><BeakerTool /></group>
           {/* Muzzle flash */}
           <mesh ref={muzzleFlashRef} position={[0, 0.1, -0.2]} visible={false}>
             <sphereGeometry args={[1, 6, 4]} />
