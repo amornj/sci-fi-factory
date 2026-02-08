@@ -697,7 +697,7 @@ export default function HandTool() {
     groupRef.current.position.copy(camera.position).add(_offset);
 
     groupRef.current.quaternion.copy(camera.quaternion);
-    _euler.set(animRotX, 0.3, animRotZ + wristTwist);
+    _euler.set(animRotX, 0, animRotZ + wristTwist);
     _quat.setFromEuler(_euler);
     groupRef.current.quaternion.multiply(_quat);
   });
